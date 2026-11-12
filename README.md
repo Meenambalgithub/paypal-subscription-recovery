@@ -2,7 +2,7 @@
 
 **PayPal's retries recover what time can fix. This agent recovers what only the customer can fix.**
 
-Demo video (under 3 minutes): **ADD-YOUR-YOUTUBE-LINK**
+Demo video (under 3 minutes): **https://www.youtube.com/watch?v=gBiUoGYbWsE**
 
 ## The problem
 
