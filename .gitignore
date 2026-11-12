@@ -1,0 +1,16 @@
+# Secrets and local state: never commit these
+.env
+paypal_ids.json
+.reply_secret
+webhook_events.log
+subscribers.json
+
+# Python and tools
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+
+# macOS
+.DS_Store

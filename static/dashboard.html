@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline School: payment recovery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1E2A33; --steel: #5B6B78; --paper: #FAFBFC; --surface: #FFFFFF; --line: #D5DCE2;
+    --teal: #0E7C7B; --teal-soft: #7FBFBE; --amber: #E0A100; --amber-ink: #8A6200; --error: #B3261E;
+    --risk: #E7ECEF; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #E6EBEF; --steel: #A2AFBA; --paper: #12181D; --surface: #192128; --line: #2C3741;
+      --teal: #3FB3B1; --teal-soft: #2A706F; --amber: #F0B930; --amber-ink: #F0C55A; --error: #F2867E;
+      --risk: #2A343C; color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 15px/1.5 "Public Sans", system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between; }
+  .brand { font-family: Literata, Georgia, serif; font-weight: 700; font-size: 1.05rem; }
+  .note { color: var(--steel); font-size: .875rem; }
+  h1 { font-family: Literata, Georgia, serif; font-weight: 500; font-size: clamp(1.5rem, 3.2vw, 2.2rem);
+       line-height: 1.25; margin: 28px 0 22px; max-width: 30ch; }
+  h2 { font-family: Literata, Georgia, serif; font-weight: 700; font-size: 1.1rem; margin: 0 0 12px; }
+
+  /* The money bar: the one bold element */
+  .bar { display: flex; height: 44px; border-radius: 6px; overflow: hidden; background: var(--risk); }
+  .bar span { display: block; height: 100%; min-width: 3px; }
+  .seg-agent { background: var(--teal); } .seg-paypal { background: var(--teal-soft); }
+  .seg-paused { background: repeating-linear-gradient(135deg, var(--teal-soft) 0 6px, transparent 6px 12px); }
+  .seg-risk { background: var(--amber); } .seg-lost { background: var(--error); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 26px; margin: 12px 0 0; padding: 0; list-style: none; }
+  .legend li { display: flex; align-items: center; gap: 8px; color: var(--steel); }
+  .legend b { color: var(--ink); font-weight: 600; }
+  .key { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; margin-top: 40px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 500; color: var(--steel); font-size: .85rem; padding: 0 10px 8px; }
+  td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td, tbody tr.sel td { background: var(--surface); }
+  tbody tr:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .who { font-weight: 600; }
+  .sim { color: var(--steel); font-size: .8rem; font-weight: 400; }
+  .state { white-space: nowrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+  .flag { color: var(--amber-ink); font-size: .85rem; white-space: nowrap; }
+
+  .review { border-left: 3px solid var(--amber); padding-left: 16px; }
+  .ask { padding: 12px 0; border-top: 1px solid var(--line); }
+  .ask:first-of-type { border-top: 0; padding-top: 0; }
+  .ask p { margin: 4px 0 10px; color: var(--steel); }
+  button { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+           border: 1px solid var(--ink); background: transparent; color: var(--ink); }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .empty { color: var(--steel); }
+
+  /* Decision trail */
+  #detail { margin-top: 36px; border-top: 2px solid var(--ink); padding-top: 22px; }
+  #detail[hidden] { display: none; }
+  .trail { list-style: none; margin: 0; padding: 0; }
+  .trail li { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; padding: 10px 0;
+              border-top: 1px solid var(--line); }
+  .trail time { color: var(--steel); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .trail .blocked { color: var(--amber-ink); }
+  .trail .why { display: block; color: var(--steel); }
+  details { margin-top: 6px; }
+  summary { cursor: pointer; color: var(--teal); }
+  pre { white-space: pre-wrap; font: inherit; background: var(--surface); border: 1px solid var(--line);
+        border-radius: 8px; padding: 12px 14px; margin: 8px 0 0; max-width: 72ch; }
+  .err { color: var(--error); }
+  @media (prefers-reduced-motion: no-preference) { .bar span { transition: flex-grow .6s ease; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Pipeline School <span class="note">payment recovery</span></div>
+    <div class="note" id="meta">Loading…</div>
+  </header>
+
+  <h1 id="headline">Loading recovery numbers…</h1>
+  <div class="bar" id="bar" role="img" aria-label="Where failed payments ended up"></div>
+  <ul class="legend" id="legend"></ul>
+
+  <div class="grid">
+    <section>
+      <h2>Cases</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Customer</th><th>What happened</th><th>Where it stands</th><th class="num">Amount</th><th>Next check</th></tr></thead>
+          <tbody id="cases"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <aside class="review">
+      <h2>Needs your review</h2>
+      <div id="approvals"><p class="empty">Loading…</p></div>
+    </aside>
+  </div>
+
+  <section id="detail" hidden aria-live="polite"></section>
+</div>
+
+<script>
+const CATEGORY = {
+  CUSTOMER_ACTION: "Customer needs to update their payment method",
+  TEMPORARY: "PayPal-side error, PayPal is retrying",
+  PAST_DUE: "Subscription suspended, balance due",
+  RISK: "Restricted payer account",
+  MERCHANT: "Problem with your merchant account",
+  UNKNOWN: "Failed with no reason given",
+};
+const STATE = {
+  OPEN: ["New", "var(--amber)"], AT_RISK: ["At risk", "var(--amber)"],
+  WAITING_PAYPAL: ["Waiting for PayPal's retry", "var(--amber)"],
+  CONTACTED: ["Customer emailed", "var(--amber)"], NEGOTIATING: ["Customer replied", "var(--amber)"],
+  ESCALATED: ["With you for review", "var(--steel)"], RECOVERED: ["Recovered", "var(--teal)"],
+  PAUSED: ["Paused at customer's request", "var(--teal-soft)"], LOST: ["Lost", "var(--error)"],
+  CLOSED_OK: ["Closed", "var(--steel)"],
+};
+const TOOL = {
+  get_case: "Read the case", get_subscription: "Checked PayPal", send_message: "Email to customer",
+  schedule_followup: "Scheduled the next check", escalate_to_merchant: "Sent to you for review",
+  capture_outstanding: "Retried the payment", pause_subscription: "Paused the subscription",
+  close_case: "Closed the case", _safety_net: "Code scheduled the next check",
+  _llm_unavailable: "AI unavailable: nothing sent, retrying later", _live_check: "PayPal shows it was paid",
+};
+const usd = v => "$" + Number(v || 0).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const when = iso => iso ? new Date(iso).toLocaleString(undefined, {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "";
+const span = s => { if (s == null) return ""; if (s <= 0) return "now"; const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  return "in " + (d ? d + "d " : "") + (h ? h + "h " : "") + (d ? "" : m + "m"); };
+let selected = null;
+
+async function load() {
+  let data;
+  try {
+    const res = await fetch("/api/dashboard");
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    data = await res.json();
+  } catch (e) {
+    document.getElementById("headline").innerHTML = `<span class="err">Couldn't load the numbers: ${esc(e.message)}. Is Docker running?</span>`;
+    return;
+  }
+  const t = data.totals;
+  const parts = [`${usd(t.recovered)} recovered`];
+  if (t.at_risk > 0) parts.push(`${usd(t.at_risk)} still at risk across ${t.open_cases} open ${t.open_cases === 1 ? "case" : "cases"}`);
+  document.getElementById("headline").textContent = parts.join(", ") + ".";
+  document.getElementById("meta").textContent =
+    `${t.simulated_cases} of ${data.cases.length} cases use simulated customers. Updated ${when(data.generated_at)}.`;
+
+  const segs = [
+    ["seg-agent", t.recovered_after_agent, `Recovered after the agent emailed`, t.recovered_after_agent_cases, "var(--teal)"],
+    ["seg-paypal", t.recovered_by_paypal_retry, "Recovered by PayPal's retry alone", t.recovered_cases - t.recovered_after_agent_cases, "var(--teal-soft)"],
+    ["seg-paused", t.paused, "Paused at the customer's request", t.paused_cases, "var(--teal-soft)"],
+    ["seg-risk", t.at_risk, "Still at risk", t.open_cases, "var(--amber)"],
+    ["seg-lost", t.lost, "Lost", t.lost_cases, "var(--error)"],
+  ];
+  const sum = segs.reduce((a, s) => a + s[1], 0) || 1;
+  document.getElementById("bar").innerHTML = segs.filter(s => s[1] > 0)
+    .map(s => `<span class="${s[0]}" style="flex-grow:${s[1] / sum}" title="${esc(s[2])}: ${usd(s[1])}"></span>`).join("");
+  document.getElementById("legend").innerHTML = segs
+    .map(s => `<li><span class="key ${s[0]}"></span>${esc(s[2])} <b>${usd(s[1])}</b></li>`).join("") +
+    (t.recovery_rate != null ? `<li>Recovery rate <b>${Math.round(t.recovery_rate * 100)}%</b></li>` : "");
+
+  document.getElementById("cases").innerHTML = data.cases.length ? data.cases.map(c => {
+    const [label, color] = STATE[c.state] || [c.state, "var(--steel)"];
+    const flags = [c.blocked ? `${c.blocked} blocked by the rules` : "", c.replies ? `${c.replies} ${c.replies === 1 ? "reply" : "replies"}` : ""].filter(Boolean).join(", ");
+    return `<tr tabindex="0" data-id="${c.case_id}" class="${c.case_id === selected ? "sel" : ""}">
+      <td><span class="who">${esc(c.customer || c.subscription_id)}</span>${c.source === "simulator" ? ' <span class="sim">simulated</span>' : ""}</td>
+      <td>${esc(CATEGORY[c.category] || c.category)}${flags ? `<br><span class="flag">${esc(flags)}</span>` : ""}</td>
+      <td class="state"><span class="dot" style="background:${color}"></span>${esc(label)}</td>
+      <td class="num">${usd(c.amount)}</td>
+      <td class="note">${c.closed_at ? "" : esc(span(c.next_check_in_s))}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="empty">No failed payments yet. Run python simulate_failure.py to create one.</td></tr>`;
+  document.querySelectorAll("#cases tr[data-id]").forEach(tr => {
+    const open = () => showCase(Number(tr.dataset.id));
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  });
+
+  document.getElementById("approvals").innerHTML = data.approvals.length ? data.approvals.map(a => `
+    <div class="ask"><b>${esc(a.customer || "Customer")}</b>, case ${a.case_id}
+      <p>${esc(a.reason)} The agent didn't contact this customer.</p>
+      <button data-approval="${a.approval_id}">Mark as reviewed</button></div>`).join("")
+    : `<p class="empty">Nothing waiting. Risky cases appear here instead of being emailed.</p>`;
+  document.querySelectorAll("[data-approval]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true; b.textContent = "Marking…";
+    await fetch(`/api/approvals/${b.dataset.approval}/resolve`, {method: "POST"});
+    load(); if (selected) showCase(selected);
+  }));
+}
+
+async function showCase(id) {
+  selected = id;
+  document.querySelectorAll("#cases tr").forEach(tr => tr.classList.toggle("sel", Number(tr.dataset.id) === id));
+  const box = document.getElementById("detail");
+  const res = await fetch(`/api/cases/${id}`);
+  if (!res.ok) { box.hidden = false; box.innerHTML = `<p class="err">Couldn't load case ${id}.</p>`; return; }
+  const d = await res.json();
+  const items = [
+    ...d.events.map(e => ({t: e.occurred_at, html: `PayPal event: ${esc(e.event_type)}${e.source === "simulator" ? ' <span class="sim">simulated</span>' : ""}`})),
+    ...d.messages.map(m => ({t: m.created_at, html: `${m.direction === "INBOUND" ? "Customer" : "Email sent"}: <b>${esc(m.subject)}</b>
+        ${m.direction === "OUTBOUND" ? `<details><summary>Read the email</summary><pre>${esc(m.body)}</pre></details>` : ""}`})),
+    ...d.actions.filter(a => a.tool !== "send_message" || a.decision !== "ALLOWED").map(a => {
+      const blocked = a.decision === "BLOCKED";
+      const reason = blocked && a.result ? (a.result.blocked || a.result.error || "") : "";
+      return {t: a.created_at, html: `<span class="${blocked ? "blocked" : ""}">${blocked ? "Blocked: " : ""}${esc(TOOL[a.tool] || a.tool)}</span>
+        ${reason ? `<span class="why">${esc(reason)}</span>` : ""}`};
+    }),
+  ].sort((a, b) => new Date(a.t) - new Date(b.t));
+  const c = d.case;
+  box.hidden = false;
+  box.innerHTML = `<h2>Case ${c.case_id}: what happened, step by step</h2>
+    <p class="note">${esc(CATEGORY[c.category] || c.category)}. ${esc((STATE[c.state] || [c.state])[0])}.
+      ${c.paused_until ? `Paused until ${esc(when(c.paused_until))}.` : ""}</p>
+    <ol class="trail">${items.map(i => `<li><time>${esc(when(i.t))}</time><div>${i.html}</div></li>`).join("")}</ol>`;
+}
+
+load();
+setInterval(load, 10000);
+</script>
+</body>
+</html>

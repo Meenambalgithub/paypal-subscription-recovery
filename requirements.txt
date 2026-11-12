@@ -1,0 +1,14 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+requests>=2.31
+python-dotenv>=1.0
+# Week 2: event pipeline
+confluent-kafka>=2.4
+redis>=5.0
+psycopg[binary]>=3.1
+# Week 3: agent
+google-genai>=1.40
+tzdata>=2024.1
+# Tests
+pytest>=8.0
+httpx>=0.27
